@@ -1112,10 +1112,9 @@ function isTemplateMenuLaunch(input = {}) {
 
 function focusComposerLayoutConstraints() {
   return {
-    panelHeight: "min(760px, calc(100vh - 48px))",
     panelMaxHeight: "calc(100vh - 48px)",
-    composerMinHeight: "280px",
-    compactComposerMinHeight: "210px",
+    composerHeight: "clamp(320px, 46vh, 440px)",
+    compactComposerHeight: "clamp(240px, 42vh, 340px)",
     capsuleEditorMaxHeight: "clamp(112px, calc(100vh - 680px), 190px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
@@ -1830,12 +1829,10 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-panel {
   width: min(920px, calc(100vw - 48px));
-  height: ${layout.panelHeight};
-  min-height: min(620px, calc(100vh - 48px));
   max-height: ${layout.panelMaxHeight};
   box-sizing: border-box;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, auto) minmax(${layout.composerMinHeight}, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 18px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
@@ -1860,7 +1857,7 @@ html.${TWEAK_ID}-open {
 }
 
 .${TWEAK_ID}-footer {
-  align-self: end;
+  flex: 0 0 auto;
   padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
@@ -2089,9 +2086,9 @@ textarea.${TWEAK_ID}-capsule-input {
 
 .${TWEAK_ID}-textarea {
   width: 100%;
-  min-height: ${layout.composerMinHeight};
-  height: 100%;
-  align-self: stretch;
+  min-height: 0;
+  height: ${layout.composerHeight};
+  flex: 0 0 auto;
   resize: none;
   overflow: auto;
   box-sizing: border-box;
@@ -2224,10 +2221,7 @@ textarea.${TWEAK_ID}-capsule-input {
   }
 
   .${TWEAK_ID}-panel {
-    height: calc(100vh - 32px);
-    min-height: calc(100vh - 32px);
     max-height: calc(100vh - 32px);
-    grid-template-rows: auto auto minmax(0, auto) minmax(${layout.compactComposerMinHeight}, 1fr) auto auto;
     gap: 10px;
     padding: 14px;
   }
@@ -2237,7 +2231,7 @@ textarea.${TWEAK_ID}-capsule-input {
   }
 
   .${TWEAK_ID}-textarea {
-    min-height: ${layout.compactComposerMinHeight};
+    height: ${layout.compactComposerHeight};
   }
 }
 
@@ -2248,10 +2242,7 @@ textarea.${TWEAK_ID}-capsule-input {
 
   .${TWEAK_ID}-panel {
     width: calc(100vw - 24px);
-    height: ${layout.mobilePanelMinHeight};
-    min-height: ${layout.mobilePanelMinHeight};
     max-height: ${layout.mobilePanelMinHeight};
-    grid-template-rows: auto auto minmax(0, auto) minmax(180px, 1fr) auto auto;
   }
 
   .${TWEAK_ID}-header,
@@ -2279,7 +2270,7 @@ textarea.${TWEAK_ID}-capsule-input {
   }
 
   .${TWEAK_ID}-textarea {
-    min-height: 180px;
+    height: clamp(220px, 42vh, 360px);
   }
 
   .${TWEAK_ID}-actions {

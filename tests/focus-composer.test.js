@@ -421,10 +421,9 @@ test("focus template layout constraints keep menus inside the viewport", () => {
   assert.equal(typeof helpers.focusComposerLayoutConstraints, "function");
 
   assert.deepEqual(helpers.focusComposerLayoutConstraints(), {
-    panelHeight: "min(760px, calc(100vh - 48px))",
     panelMaxHeight: "calc(100vh - 48px)",
-    composerMinHeight: "280px",
-    compactComposerMinHeight: "210px",
+    composerHeight: "clamp(320px, 46vh, 440px)",
+    compactComposerHeight: "clamp(240px, 42vh, 340px)",
     capsuleEditorMaxHeight: "clamp(112px, calc(100vh - 680px), 190px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
