@@ -309,6 +309,60 @@ test("buildWorkSessionPrompt prepares a review-first launch prompt", () => {
   assert.match(prompt, /SNI-5 \[urgent\/todo\] Add Opinion Source AI chat/);
 });
 
+test("buildShipNotePrompt prepares an end-session ship note draft", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildShipNotePrompt, "function");
+
+  const prompt = helpers.buildShipNotePrompt({
+    project: {
+      projectLabel: "sniper-system",
+      projectPath: "/Users/yjh/Playground/sniper-system",
+      openCounts: {
+        in_review: 1,
+      },
+      focusIssues: [
+        { id: "SNI-7", title: "Review Codex tweak crash recovery", status: "in_review", priority: "high" },
+      ],
+    },
+    activeIssue: {
+      issueId: "SNI-1",
+      title: "Fix regression colors",
+      status: "in_progress",
+      priority: "high",
+    },
+    capsule: {
+      goal: "Ship Project Home improvements",
+      files: "project-home/index.js\nfocus-composer/index.js",
+      verified: "npm test\ncodexplusplus doctor",
+      next: "Restart Codex and dogfood",
+    },
+  });
+
+  assert.match(prompt, /^End this Project Home session\./);
+  assert.match(prompt, /Shipped:/);
+  assert.match(prompt, /Changed files:/);
+  assert.match(prompt, /Verified:/);
+  assert.match(prompt, /Risks \/ not done:/);
+  assert.match(prompt, /Next session starter:/);
+  assert.match(prompt, /Session Resume Pack/);
+  assert.match(prompt, /SNI-1 Fix regression colors/);
+  assert.match(prompt, /SNI-7 \[high\/in_review\] Review Codex tweak crash recovery/);
+});
+
+test("buildLaunchPrompt routes ship-note launches to the ship note prompt", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildLaunchPrompt, "function");
+
+  const prompt = helpers.buildLaunchPrompt({
+    kind: "ship-note",
+    project: { projectLabel: "sniper-system" },
+    activeIssue: { issueId: "SNI-1", title: "Fix regression colors" },
+    capsule: { goal: "Finish the session" },
+  });
+
+  assert.match(prompt, /^End this Project Home session\./);
+});
+
 test("buildFocusComposerExport captures draft, capsules, settings, and active issue", () => {
   const helpers = focusComposer.__test || {};
   assert.equal(typeof helpers.buildFocusComposerExport, "function");

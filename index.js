@@ -131,14 +131,16 @@ function handleLaunchRequest(state, event) {
   state.projectSnapshot = normalizeProjectSnapshot(detail.project || readSharedResumePack());
   loadCapsuleForCurrentProject(state);
   const explicitText = typeof detail.text === "string" ? detail.text.trim() : "";
-  const text = explicitText || buildWorkSessionPrompt({
+  const promptInput = {
+    kind: detail.kind || detail.mode || "",
     project: state.projectSnapshot,
     activeIssue: state.activeIssue,
     capsule: state.capsule,
-  });
+  };
+  const text = explicitText || buildLaunchPrompt(promptInput);
   openOverlay(state, {
     text,
-    status: "Work session ready",
+    status: launchStatusFor(promptInput),
     activeIssue: state.activeIssue,
     project: state.projectSnapshot,
   });
@@ -846,6 +848,45 @@ function buildWorkSessionPrompt(input = {}) {
     "",
     formatResumePack(input),
   ].join("\n");
+}
+
+function buildShipNotePrompt(input = {}) {
+  return [
+    "End this Project Home session.",
+    "",
+    "Draft a concise ship note from the Session Resume Pack below. Do not invent missing details; use '-' for anything unknown.",
+    "",
+    "Ship Note",
+    "",
+    "Shipped:",
+    "- ",
+    "",
+    "Changed files:",
+    "- ",
+    "",
+    "Verified:",
+    "- ",
+    "",
+    "Risks / not done:",
+    "- ",
+    "",
+    "Next session starter:",
+    "- ",
+    "",
+    formatResumePack(input),
+  ].join("\n");
+}
+
+function buildLaunchPrompt(input = {}) {
+  return isShipNoteLaunch(input) ? buildShipNotePrompt(input) : buildWorkSessionPrompt(input);
+}
+
+function launchStatusFor(input = {}) {
+  return isShipNoteLaunch(input) ? "Ship note ready" : "Work session ready";
+}
+
+function isShipNoteLaunch(input = {}) {
+  return String(input.kind || input.mode || "").trim().toLowerCase() === "ship-note";
 }
 
 function formatResumePack(input = {}) {
@@ -1754,6 +1795,8 @@ module.exports.__test = {
   summarizeActiveIssue,
   formatActiveIssue,
   buildWorkSessionPrompt,
+  buildShipNotePrompt,
+  buildLaunchPrompt,
   formatResumePack,
   buildFocusComposerExport,
 };
