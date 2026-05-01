@@ -323,6 +323,7 @@ test("buildWorkSessionPrompt prepares a review-first launch prompt", () => {
   });
 
   assert.match(prompt, /^Start work on this Project Home session\./);
+  assert.match(prompt, /Default to Chinese in your reply/);
   assert.match(prompt, /First restate the current goal briefly/);
   assert.match(prompt, /Session Resume Pack/);
   assert.match(prompt, /SNI-1 Fix regression colors/);
@@ -359,6 +360,7 @@ test("buildShipNotePrompt prepares an end-session ship note draft", () => {
   });
 
   assert.match(prompt, /^End this Project Home session\./);
+  assert.match(prompt, /Default to Chinese in your reply/);
   assert.match(prompt, /Shipped:/);
   assert.match(prompt, /Changed files:/);
   assert.match(prompt, /Verified:/);
@@ -367,6 +369,20 @@ test("buildShipNotePrompt prepares an end-session ship note draft", () => {
   assert.match(prompt, /Session Resume Pack/);
   assert.match(prompt, /SNI-1 Fix regression colors/);
   assert.match(prompt, /SNI-7 \[high\/in_review\] Review Codex tweak crash recovery/);
+});
+
+test("launch prompt text keeps explicit Project Brain text but adds Chinese reply guidance", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildLaunchText, "function");
+
+  const prompt = helpers.buildLaunchText(
+    { kind: "project-brain" },
+    "Project Brain\n\nFacts:\nRenderer-only tweak",
+  );
+
+  assert.match(prompt, /^Default to Chinese in your reply/);
+  assert.match(prompt, /Project Brain/);
+  assert.match(prompt, /Facts:\nRenderer-only tweak/);
 });
 
 test("buildLaunchPrompt routes ship-note launches to the ship note prompt", () => {
@@ -486,6 +502,7 @@ test("focus templates expose predictable built-ins and contextual prompts", () =
   assert.match(prompt, /Active issue: SNI-1 Fix regression colors/);
   assert.match(prompt, /Goal: Ship workflow/);
   assert.match(prompt, /Next: Verify in Codex/);
+  assert.match(prompt, /Default to Chinese in your reply/);
   assert.match(prompt, /Do not patch yet/);
 });
 

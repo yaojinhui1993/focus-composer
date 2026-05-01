@@ -30,6 +30,7 @@ const DEFAULTS = {
   shortcutEnabled: true,
   clearDraftOnInsert: false,
 };
+const DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION = "Default to Chinese in your reply. Keep code, commands, file paths, errors, API names, and quoted source text in their original language.";
 
 const TWEAK_ID = "com-yjh-focus-composer";
 const TEMPLATE_MENU_ID = `${TWEAK_ID}-template-menu`;
@@ -309,7 +310,7 @@ function handleLaunchRequest(state, event) {
     setError(state, "");
     return;
   }
-  const text = explicitText || buildLaunchPrompt(promptInput);
+  const text = buildLaunchText(promptInput, explicitText);
   openOverlay(state, {
     text,
     status: launchStatusFor(promptInput),
@@ -1189,6 +1190,8 @@ function buildTemplatePrompt(templateId, context = {}) {
   return [
     template.title,
     "",
+    DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION,
+    "",
     "Context:",
     ...formatTemplateContext(context),
     "",
@@ -1384,6 +1387,8 @@ function buildWorkSessionPrompt(input = {}) {
   return [
     "Start work on this Project Home session.",
     "",
+    DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION,
+    "",
     "Use the Session Resume Pack below as the source of truth. First restate the current goal briefly, then continue with the next concrete step.",
     "",
     formatResumePack(input),
@@ -1393,6 +1398,8 @@ function buildWorkSessionPrompt(input = {}) {
 function buildShipNotePrompt(input = {}) {
   return [
     "End this Project Home session.",
+    "",
+    DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION,
     "",
     "Draft a concise ship note from the Session Resume Pack below. Do not invent missing details; use '-' for anything unknown.",
     "",
@@ -1420,6 +1427,21 @@ function buildShipNotePrompt(input = {}) {
 function buildLaunchPrompt(input = {}) {
   if (isOpenComposerLaunch(input)) return "";
   return isShipNoteLaunch(input) ? buildShipNotePrompt(input) : buildWorkSessionPrompt(input);
+}
+
+function buildLaunchText(input = {}, explicitText = "") {
+  const text = typeof explicitText === "string" ? explicitText.trim() : "";
+  return text ? withDefaultResponseLanguageInstruction(text) : buildLaunchPrompt(input);
+}
+
+function withDefaultResponseLanguageInstruction(text) {
+  const body = String(text || "").trim();
+  if (!body || body.includes(DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION)) return body;
+  return [
+    DEFAULT_RESPONSE_LANGUAGE_INSTRUCTION,
+    "",
+    body,
+  ].join("\n");
 }
 
 function launchStatusFor(input = {}) {
@@ -2601,6 +2623,7 @@ module.exports.__test = {
   buildWorkSessionPrompt,
   buildShipNotePrompt,
   buildLaunchPrompt,
+  buildLaunchText,
   isOpenComposerLaunch,
   buildFocusComposerQuickActions,
   buildFocusComposerKeyboardShortcuts,
