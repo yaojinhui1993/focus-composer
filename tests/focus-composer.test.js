@@ -425,7 +425,7 @@ test("focus template layout constraints keep menus inside the viewport", () => {
     panelMaxHeight: "calc(100vh - 48px)",
     composerMinHeight: "300px",
     compactComposerMinHeight: "220px",
-    capsuleEditorMaxHeight: "clamp(132px, calc(100vh - 640px), 220px)",
+    capsuleEditorMaxHeight: "clamp(112px, calc(100vh - 680px), 190px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
     mobilePanelMinHeight: "calc(100vh - 24px)",

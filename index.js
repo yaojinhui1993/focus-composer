@@ -652,7 +652,8 @@ function createCapsuleSection(state) {
   const editor = el("div", `${TWEAK_ID}-capsule-editor`);
   editor.hidden = true;
 
-  const grid = el("div", `${TWEAK_ID}-capsule-grid`);
+  const primaryGrid = el("div", `${TWEAK_ID}-capsule-grid ${TWEAK_ID}-capsule-grid-primary`);
+  const advancedGrid = el("div", `${TWEAK_ID}-capsule-grid ${TWEAK_ID}-capsule-grid-advanced`);
   const fields = [
     ["goal", "Goal", "What are we trying to finish?"],
     ["decisions", "Decisions", "One decision per line"],
@@ -662,8 +663,14 @@ function createCapsuleSection(state) {
   ];
   for (const [key, label, placeholder] of fields) {
     const field = capsuleField(state, key, label, placeholder);
-    grid.appendChild(field);
+    if (key === "goal" || key === "next") primaryGrid.appendChild(field);
+    else advancedGrid.appendChild(field);
   }
+
+  const advanced = el("details", `${TWEAK_ID}-capsule-more`);
+  const advancedSummary = el("summary", `${TWEAK_ID}-capsule-more-summary`);
+  advancedSummary.textContent = "More context";
+  advanced.append(advancedSummary, advancedGrid);
 
   const actions = el("div", `${TWEAK_ID}-capsule-actions`);
   actions.append(
@@ -673,7 +680,7 @@ function createCapsuleSection(state) {
     button("Clear Capsule", "secondary", () => clearCapsule(state)),
   );
 
-  editor.append(grid, actions);
+  editor.append(primaryGrid, advanced, actions);
   root.append(summary, editor);
 
   state.capsuleSummary = summary;
@@ -1109,7 +1116,7 @@ function focusComposerLayoutConstraints() {
     panelMaxHeight: "calc(100vh - 48px)",
     composerMinHeight: "300px",
     compactComposerMinHeight: "220px",
-    capsuleEditorMaxHeight: "clamp(132px, calc(100vh - 640px), 220px)",
+    capsuleEditorMaxHeight: "clamp(112px, calc(100vh - 680px), 190px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
     mobilePanelMinHeight: "calc(100vh - 24px)",
@@ -1971,11 +1978,11 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-capsule-editor {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto auto auto;
   gap: 8px;
   max-height: ${layout.capsuleEditorMaxHeight};
   overflow: auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, Canvas 98%, CanvasText 2%);
@@ -1988,8 +1995,16 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-capsule-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.${TWEAK_ID}-capsule-grid-primary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.${TWEAK_ID}-capsule-grid-advanced {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 6px;
 }
 
 .${TWEAK_ID}-capsule-field {
@@ -2005,15 +2020,16 @@ html.${TWEAK_ID}-open {
 }
 
 .${TWEAK_ID}-capsule-label {
-  font-size: 12px;
+  font-size: 11px;
+  line-height: 1.25;
   color: color-mix(in srgb, currentColor 62%, transparent);
 }
 
 .${TWEAK_ID}-capsule-input {
   width: 100%;
   box-sizing: border-box;
-  min-height: 32px;
-  padding: 6px 8px;
+  min-height: 30px;
+  padding: 5px 8px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   border-radius: 7px;
   outline: none;
@@ -2023,8 +2039,8 @@ html.${TWEAK_ID}-open {
 }
 
 textarea.${TWEAK_ID}-capsule-input {
-  min-height: 56px;
-  max-height: 72px;
+  min-height: 48px;
+  max-height: 62px;
   resize: none;
   overflow: auto;
   scrollbar-width: thin;
@@ -2040,8 +2056,35 @@ textarea.${TWEAK_ID}-capsule-input {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
-  padding-top: 6px;
+  padding-top: 2px;
   border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.${TWEAK_ID}-capsule-more {
+  min-width: 0;
+}
+
+.${TWEAK_ID}-capsule-more-summary {
+  width: max-content;
+  max-width: 100%;
+  list-style: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: color-mix(in srgb, currentColor 62%, transparent);
+  font-size: 11px;
+  line-height: 1.25;
+  cursor: pointer;
+  user-select: none;
+}
+
+.${TWEAK_ID}-capsule-more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.${TWEAK_ID}-capsule-more-summary:hover,
+.${TWEAK_ID}-capsule-more[open] > .${TWEAK_ID}-capsule-more-summary {
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  color: inherit;
 }
 
 .${TWEAK_ID}-textarea {
@@ -2189,7 +2232,7 @@ textarea.${TWEAK_ID}-capsule-input {
   }
 
   .${TWEAK_ID}-capsule-editor {
-    max-height: 150px;
+    max-height: 132px;
   }
 
   .${TWEAK_ID}-textarea {
@@ -2220,14 +2263,18 @@ textarea.${TWEAK_ID}-capsule-input {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .${TWEAK_ID}-capsule-grid-advanced {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .${TWEAK_ID}-capsule-field-decisions,
   .${TWEAK_ID}-capsule-field-files,
   .${TWEAK_ID}-capsule-field-verified {
-    grid-column: span 2;
+    grid-column: auto;
   }
 
   .${TWEAK_ID}-capsule-editor {
-    max-height: 180px;
+    max-height: 150px;
   }
 
   .${TWEAK_ID}-textarea {
