@@ -30,6 +30,114 @@ const DEFAULTS = {
 };
 
 const TWEAK_ID = "com-yjh-focus-composer";
+const TEMPLATE_MENU_ID = `${TWEAK_ID}-template-menu`;
+const FOCUS_TEMPLATES = [
+  {
+    id: "implementation-plan",
+    title: "Implementation Plan",
+    subtitle: "Turn context into a concrete coding plan.",
+    keywords: ["implementation", "plan", "tasks", "steps"],
+    body: [
+      "Create an implementation plan for this work.",
+      "",
+      "Please include:",
+      "- Goal and non-goals",
+      "- Files or modules likely involved",
+      "- Step-by-step implementation sequence",
+      "- Tests and verification commands",
+      "- Risks, edge cases, and rollback notes",
+    ],
+  },
+  {
+    id: "debug-root-cause",
+    title: "Debug / Root Cause",
+    subtitle: "Investigate before changing code.",
+    keywords: ["debug", "root cause", "bug", "investigate"],
+    body: [
+      "Debug this issue systematically.",
+      "",
+      "Do not patch yet. First:",
+      "- Reproduce or define the symptom precisely",
+      "- Inspect the relevant code path",
+      "- Identify the root cause and why it happens",
+      "- Propose the smallest safe fix",
+      "- Add or update a regression test",
+    ],
+  },
+  {
+    id: "code-review",
+    title: "Code Review",
+    subtitle: "Review for bugs, regressions, and missing tests.",
+    keywords: ["review", "code review", "regression", "tests"],
+    body: [
+      "Review this change like a senior engineer.",
+      "",
+      "Prioritize:",
+      "- Bugs and behavioral regressions",
+      "- Missing or weak test coverage",
+      "- Data loss, race conditions, and error handling",
+      "- UI states that can break on small viewports",
+      "- Unclear ownership or follow-up risk",
+    ],
+  },
+  {
+    id: "refactor-safely",
+    title: "Refactor Safely",
+    subtitle: "Improve structure without changing behavior.",
+    keywords: ["refactor", "safe", "cleanup", "structure"],
+    body: [
+      "Refactor this area safely.",
+      "",
+      "Keep behavior unchanged. Please:",
+      "- Describe the current shape briefly",
+      "- Identify the smallest useful boundary improvement",
+      "- Preserve public behavior and storage formats",
+      "- Add or keep tests around the behavior being moved",
+      "- Avoid unrelated cleanup",
+    ],
+  },
+  {
+    id: "test-plan",
+    title: "Test Plan",
+    subtitle: "Design focused verification before shipping.",
+    keywords: ["test", "test plan", "verification", "qa"],
+    body: [
+      "Create a focused test plan.",
+      "",
+      "Cover:",
+      "- Unit tests for core logic",
+      "- Integration or UI checks for the user workflow",
+      "- Regression cases for known failure modes",
+      "- Manual verification steps",
+      "- Commands to run before calling this done",
+    ],
+  },
+  {
+    id: "ship-note",
+    title: "Ship Note",
+    subtitle: "Summarize what changed and what remains.",
+    keywords: ["ship", "ship note", "release", "handoff"],
+    body: [
+      "Draft a concise ship note.",
+      "",
+      "Use this structure:",
+      "Shipped:",
+      "-",
+      "",
+      "Changed files:",
+      "-",
+      "",
+      "Verified:",
+      "-",
+      "",
+      "Risks / not done:",
+      "-",
+      "",
+      "Next:",
+      "-",
+    ],
+  },
+];
 
 /** @type {import("@codex-plusplus/sdk").Tweak} */
 module.exports = {
@@ -43,6 +151,8 @@ module.exports = {
       style: null,
       composer: null,
       count: null,
+      templateHost: null,
+      templateMenu: null,
       capsuleProjectKey: null,
       capsule: defaultCapsule(),
       capsuleSummary: null,
@@ -123,6 +233,11 @@ function handleGlobalKeydown(state, event) {
   if (isOverlayOpen(state)) {
     if (event.key === "Escape") {
       event.preventDefault();
+      if (state.templateMenu?.isConnected) {
+        closeTemplateMenu(state);
+        state.textarea?.focus();
+        return;
+      }
       closeOverlay(state);
       return;
     }
@@ -156,6 +271,16 @@ function handleLaunchRequest(state, event) {
     activeIssue: state.activeIssue,
     capsule: state.capsule,
   };
+  if (isTemplateMenuLaunch(promptInput)) {
+    openOverlay(state, {
+      status: "Templates ready",
+      activeIssue: state.activeIssue,
+      project: state.projectSnapshot,
+    });
+    setError(state, "");
+    window.requestAnimationFrame(() => openTemplateMenu(state));
+    return;
+  }
   if (isOpenComposerLaunch(promptInput)) {
     openOverlay(state, {
       status: "Ready",
@@ -227,6 +352,24 @@ function buildFocusComposerQuickActions() {
         }));
       },
     },
+    {
+      source: QUICK_ACTIONS_SOURCE,
+      id: "insert-focus-template",
+      title: "Insert Focus Template",
+      subtitle: "Open Focus Composer templates without replacing your draft.",
+      keywords: focusTemplateQuickActionKeywords(),
+      shortcut: "Templates",
+      run() {
+        window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER_LAUNCH_EVENT, {
+          detail: {
+            version: 1,
+            source: QUICK_ACTIONS_SOURCE,
+            kind: "open-template-menu",
+            requestedAt: new Date().toISOString(),
+          },
+        }));
+      },
+    },
   ];
 }
 
@@ -286,6 +429,7 @@ function closeOverlay(state, options = {}) {
   const persist = options.persist !== false;
   if (persist) flushDraft(state);
   else clearSaveTimer(state);
+  closeTemplateMenu(state);
   if (state.overlay) state.overlay.hidden = true;
   document.documentElement.classList.remove(`${TWEAK_ID}-open`);
 }
@@ -299,6 +443,8 @@ function removeOverlay(state) {
   state.error = null;
   state.style = null;
   state.count = null;
+  state.templateHost = null;
+  state.templateMenu = null;
   state.capsuleSummary = null;
   state.capsuleEditor = null;
   state.capsuleInputs = {};
@@ -360,10 +506,15 @@ function createOverlay(state) {
   const right = el("div", `${TWEAK_ID}-actions`);
   const close = button("Close", "secondary", () => closeOverlay(state));
   const clear = button("Clear", "secondary", () => clearDraft(state));
+  const templateHost = el("div", `${TWEAK_ID}-template-host`);
+  const templates = button("Templates", "secondary", () => toggleTemplateMenu(state));
+  templates.setAttribute("aria-haspopup", "menu");
+  templates.setAttribute("aria-controls", TEMPLATE_MENU_ID);
+  templateHost.append(templates);
   const voice = button("Voice", "secondary", () => startNativeDictation(state));
   const insert = button("Insert", "secondary", () => insertDraft(state));
   const send = button("Send", "primary", () => sendDraft(state));
-  right.append(close, clear, voice, insert, send);
+  right.append(close, clear, templateHost, voice, insert, send);
   footer.append(left, right);
 
   panel.append(header, activeIssue.root, capsule.root, textarea, error, footer);
@@ -376,6 +527,7 @@ function createOverlay(state) {
   state.error = error;
   state.style = style;
   state.count = count;
+  state.templateHost = templateHost;
 }
 
 function renderSettings(root, state) {
@@ -691,6 +843,65 @@ function currentFocusComposerExport(state) {
   });
 }
 
+function toggleTemplateMenu(state) {
+  if (state.templateMenu?.isConnected) closeTemplateMenu(state);
+  else openTemplateMenu(state);
+}
+
+function openTemplateMenu(state) {
+  if (!state.templateHost) return;
+  closeTemplateMenu(state);
+  const menu = el("div", `${TWEAK_ID}-template-menu`);
+  menu.id = TEMPLATE_MENU_ID;
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", "Focus Composer templates");
+
+  const heading = el("div", `${TWEAK_ID}-template-menu-heading`);
+  heading.textContent = "Templates";
+  menu.append(heading);
+
+  for (const template of listFocusTemplates()) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `${TWEAK_ID}-template-item`;
+    item.setAttribute("role", "menuitem");
+    item.dataset.templateId = template.id;
+    const title = el("span", `${TWEAK_ID}-template-title`);
+    title.textContent = template.title;
+    const subtitle = el("span", `${TWEAK_ID}-template-subtitle`);
+    subtitle.textContent = template.subtitle;
+    item.append(title, subtitle);
+    item.addEventListener("click", (event) => {
+      event.preventDefault();
+      insertFocusTemplate(state, template.id);
+    });
+    menu.append(item);
+  }
+
+  state.templateHost.append(menu);
+  state.templateMenu = menu;
+  const first = menu.querySelector(`.${TWEAK_ID}-template-item`);
+  if (first instanceof HTMLElement) first.focus({ preventScroll: true });
+}
+
+function closeTemplateMenu(state) {
+  state.templateMenu?.remove?.();
+  state.templateMenu = null;
+}
+
+function insertFocusTemplate(state, templateId) {
+  const text = buildTemplatePrompt(templateId, {
+    project: state.projectSnapshot || readSharedResumePack(),
+    activeIssue: state.activeIssue || readSharedActiveIssue(),
+    capsule: state.capsule,
+  });
+  insertTextIntoFocusTextarea(state, text);
+  flushDraft(state);
+  closeTemplateMenu(state);
+  setError(state, "");
+  setStatus(state, "Template inserted");
+}
+
 function insertTextIntoFocusTextarea(state, text) {
   const textarea = state.textarea;
   if (!textarea) return;
@@ -836,6 +1047,67 @@ function buildFocusComposerExport(input = {}) {
     capsulesByProject: normalizeCapsulesByProject(input.capsulesByProject),
     settings: normalizeComposerSettings(input.settings),
     activeIssue: normalizeActiveIssue(input.activeIssue || {}),
+  };
+}
+
+function listFocusTemplates() {
+  return FOCUS_TEMPLATES.map((template) => ({
+    id: template.id,
+    title: template.title,
+    subtitle: template.subtitle,
+    keywords: template.keywords.slice(),
+  }));
+}
+
+function buildTemplatePrompt(templateId, context = {}) {
+  const template = FOCUS_TEMPLATES.find((item) => item.id === templateId) || FOCUS_TEMPLATES[0];
+  return [
+    template.title,
+    "",
+    "Context:",
+    ...formatTemplateContext(context),
+    "",
+    ...template.body,
+  ].join("\n");
+}
+
+function formatTemplateContext(context = {}) {
+  const project = normalizeProjectSnapshot(context.project || {});
+  const active = normalizeActiveIssue(context.activeIssue?.issueId ? context.activeIssue : project.activeIssue);
+  const capsule = normalizeCapsule(context.capsule || {});
+  const projectLabel = project.projectLabel || active.projectLabel || project.projectPath || active.projectPath || "";
+  const lines = [];
+  if (projectLabel) lines.push(`Project: ${projectLabel}`);
+  if (project.projectPath && project.projectPath !== projectLabel) lines.push(`Path: ${project.projectPath}`);
+  if (active.issueId) {
+    lines.push(`Active issue: ${summarizeActiveIssue(active)}`);
+    if (active.status) lines.push(`Status: ${active.status}`);
+    if (active.priority && active.priority !== "none") lines.push(`Priority: ${active.priority}`);
+  }
+  if (capsule.goal) lines.push(`Goal: ${capsule.goal}`);
+  if (capsule.next) lines.push(`Next: ${capsule.next}`);
+  return lines.length ? lines : ["-"];
+}
+
+function focusTemplateQuickActionKeywords() {
+  const words = ["composer", "template", "prompt"];
+  for (const template of FOCUS_TEMPLATES) {
+    words.push(template.title.toLowerCase());
+    words.push(...template.keywords);
+  }
+  return [...new Set(words)];
+}
+
+function isTemplateMenuLaunch(input = {}) {
+  return String(input.kind || input.mode || "").trim().toLowerCase() === "open-template-menu";
+}
+
+function focusComposerLayoutConstraints() {
+  return {
+    panelMaxHeight: "calc(100vh - 48px)",
+    templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
+    templateMenuOverflowY: "auto",
+    mobilePanelMinHeight: "calc(100vh - 24px)",
   };
 }
 
@@ -1523,6 +1795,7 @@ function el(tag, className) {
 }
 
 function getCss() {
+  const layout = focusComposerLayoutConstraints();
   return `
 html.${TWEAK_ID}-open {
   overflow: hidden;
@@ -1534,7 +1807,7 @@ html.${TWEAK_ID}-open {
   z-index: 2147483647;
   display: grid;
   place-items: center;
-  padding: 32px;
+  padding: 24px;
   background: rgba(7, 10, 15, 0.48);
   color: var(--text-primary, CanvasText);
 }
@@ -1546,14 +1819,17 @@ html.${TWEAK_ID}-open {
 .${TWEAK_ID}-panel {
   width: min(920px, calc(100vw - 48px));
   min-height: min(560px, calc(100vh - 72px));
+  max-height: ${layout.panelMaxHeight};
+  box-sizing: border-box;
   display: grid;
-  grid-template-rows: auto auto auto minmax(260px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(0, auto) minmax(180px, 1fr) auto auto;
   gap: 14px;
   padding: 18px;
   border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
   border-radius: 8px;
   background: color-mix(in srgb, Canvas 94%, #111827 6%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.30);
+  overflow: hidden;
 }
 
 .${TWEAK_ID}-header,
@@ -1642,6 +1918,7 @@ html.${TWEAK_ID}-open {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
 }
 
 .${TWEAK_ID}-capsule-summary {
@@ -1684,6 +1961,8 @@ html.${TWEAK_ID}-open {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: clamp(128px, calc(100vh - 360px), 260px);
+  overflow: auto;
   padding: 10px;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 8px;
@@ -1748,8 +2027,10 @@ textarea.${TWEAK_ID}-capsule-input {
 
 .${TWEAK_ID}-textarea {
   width: 100%;
-  min-height: 320px;
-  resize: vertical;
+  min-height: 0;
+  height: 100%;
+  resize: none;
+  overflow: auto;
   box-sizing: border-box;
   padding: 14px;
   border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
@@ -1785,6 +2066,68 @@ textarea.${TWEAK_ID}-capsule-input {
   justify-content: flex-end;
 }
 
+.${TWEAK_ID}-template-host {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.${TWEAK_ID}-template-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(420px, calc(100vw - 48px));
+  max-height: ${layout.templateMenuMaxHeight};
+  overflow-y: ${layout.templateMenuOverflowY};
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 8px;
+  background: Canvas;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
+  z-index: 1;
+}
+
+.${TWEAK_ID}-template-menu-heading {
+  padding: 5px 7px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 650;
+  color: color-mix(in srgb, currentColor 58%, transparent);
+}
+
+.${TWEAK_ID}-template-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.${TWEAK_ID}-template-item:hover,
+.${TWEAK_ID}-template-item:focus {
+  outline: none;
+  background: color-mix(in srgb, #4f8cff 14%, transparent);
+}
+
+.${TWEAK_ID}-template-title {
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.${TWEAK_ID}-template-subtitle {
+  font-size: 12px;
+  line-height: 1.35;
+  color: color-mix(in srgb, currentColor 58%, transparent);
+}
+
 .${TWEAK_ID}-button {
   min-height: 32px;
   padding: 0 12px;
@@ -1818,7 +2161,9 @@ textarea.${TWEAK_ID}-capsule-input {
 
   .${TWEAK_ID}-panel {
     width: calc(100vw - 24px);
-    min-height: calc(100vh - 24px);
+    min-height: ${layout.mobilePanelMinHeight};
+    max-height: ${layout.mobilePanelMinHeight};
+    grid-template-rows: auto auto minmax(0, auto) minmax(140px, 1fr) auto auto;
   }
 
   .${TWEAK_ID}-header,
@@ -1839,6 +2184,20 @@ textarea.${TWEAK_ID}-capsule-input {
 
   .${TWEAK_ID}-actions {
     justify-content: stretch;
+  }
+
+  .${TWEAK_ID}-template-host {
+    width: 100%;
+  }
+
+  .${TWEAK_ID}-template-host > .${TWEAK_ID}-button {
+    width: 100%;
+  }
+
+  .${TWEAK_ID}-template-menu {
+    left: 0;
+    right: auto;
+    width: 100%;
   }
 
   .${TWEAK_ID}-button {
@@ -1902,6 +2261,10 @@ module.exports.__test = {
   isOpenComposerLaunch,
   buildFocusComposerQuickActions,
   buildFocusComposerKeyboardShortcuts,
+  listFocusTemplates,
+  buildTemplatePrompt,
+  focusComposerLayoutConstraints,
+  isTemplateMenuLaunch,
   formatResumePack,
   buildFocusComposerExport,
 };

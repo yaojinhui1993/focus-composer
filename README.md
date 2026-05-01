@@ -18,6 +18,7 @@ Then fully quit and reopen Codex.
 - `Esc`: close and keep the draft.
 - `Cmd+Enter`: insert text into Codex and send.
 - `Cmd+Shift+Enter`: insert text into Codex without sending.
+- `Templates`: use the footer button, or the Global Quick Actions item, to insert a reusable prompt template at the cursor.
 
 Drafts are stored in this tweak's Codex++ storage namespace. No network calls are made.
 
@@ -28,6 +29,10 @@ When Project Home has an active issue, Focus Composer shows it above the Context
 ## Session Resume Pack
 
 Use `Insert Resume Pack` from the Context Capsule controls to insert a handoff that combines the active issue, local Context Capsule, Project Home open-work counts, and prioritized focus issues.
+
+## Templates
+
+Focus Composer includes built-in templates for implementation planning, root-cause debugging, code review, safe refactors, test plans, and ship notes. Templates preserve the current draft and insert at the cursor, using the current Project Home issue plus Context Capsule when available.
 
 ## Local Backup / Export
 

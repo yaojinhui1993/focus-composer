@@ -377,11 +377,55 @@ test("buildFocusComposerQuickActions registers the open composer action", () => 
   assert.equal(typeof helpers.buildFocusComposerQuickActions, "function");
 
   const actions = helpers.buildFocusComposerQuickActions();
-  assert.deepEqual(actions.map((action) => action.id), ["open-focus-composer"]);
+  assert.deepEqual(actions.map((action) => action.id), ["open-focus-composer", "insert-focus-template"]);
   assert.equal(actions[0].source, "focus-composer");
   assert.equal(actions[0].title, "Open Focus Composer");
   assert.equal(actions[0].shortcut, "Cmd+Shift+Space");
+  assert.equal(actions[1].title, "Insert Focus Template");
+  assert.ok(actions[1].keywords.includes("debug"));
+  assert.ok(actions[1].keywords.includes("ship note"));
   assert.equal(typeof actions[0].run, "function");
+  assert.equal(typeof actions[1].run, "function");
+});
+
+test("focus templates expose predictable built-ins and contextual prompts", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.listFocusTemplates, "function");
+  assert.equal(typeof helpers.buildTemplatePrompt, "function");
+
+  const templates = helpers.listFocusTemplates();
+  assert.deepEqual(templates.map((template) => template.id), [
+    "implementation-plan",
+    "debug-root-cause",
+    "code-review",
+    "refactor-safely",
+    "test-plan",
+    "ship-note",
+  ]);
+
+  const prompt = helpers.buildTemplatePrompt("debug-root-cause", {
+    project: { projectLabel: "sniper-system", projectPath: "/Users/yjh/Playground/sniper-system" },
+    activeIssue: { issueId: "SNI-1", title: "Fix regression colors", status: "in_progress" },
+    capsule: { goal: "Ship workflow", next: "Verify in Codex" },
+  });
+  assert.match(prompt, /^Debug \/ Root Cause/);
+  assert.match(prompt, /Project: sniper-system/);
+  assert.match(prompt, /Active issue: SNI-1 Fix regression colors/);
+  assert.match(prompt, /Goal: Ship workflow/);
+  assert.match(prompt, /Next: Verify in Codex/);
+  assert.match(prompt, /Do not patch yet/);
+});
+
+test("focus template layout constraints keep menus inside the viewport", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.focusComposerLayoutConstraints, "function");
+
+  assert.deepEqual(helpers.focusComposerLayoutConstraints(), {
+    panelMaxHeight: "calc(100vh - 48px)",
+    templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
+    templateMenuOverflowY: "auto",
+    mobilePanelMinHeight: "calc(100vh - 24px)",
+  });
 });
 
 test("buildFocusComposerKeyboardShortcuts registers the open shortcut", () => {
