@@ -377,15 +377,68 @@ test("buildFocusComposerQuickActions registers the open composer action", () => 
   assert.equal(typeof helpers.buildFocusComposerQuickActions, "function");
 
   const actions = helpers.buildFocusComposerQuickActions();
-  assert.deepEqual(actions.map((action) => action.id), ["open-focus-composer", "insert-focus-template"]);
+  assert.deepEqual(actions.map((action) => action.id), [
+    "open-focus-composer",
+    "insert-focus-template",
+    "insert-project-brain-pack",
+    "insert-latest-session-digest",
+  ]);
   assert.equal(actions[0].source, "focus-composer");
   assert.equal(actions[0].title, "Open Focus Composer");
   assert.equal(actions[0].shortcut, "Cmd+Shift+Space");
   assert.equal(actions[1].title, "Insert Focus Template");
   assert.ok(actions[1].keywords.includes("debug"));
   assert.ok(actions[1].keywords.includes("ship note"));
+  assert.equal(actions[2].title, "Insert Project Brain Pack");
+  assert.equal(actions[3].title, "Insert Latest Session Digest");
+  assert.equal(actions[2].isDisabled(), true);
+  assert.equal(actions[3].isDisabled(), true);
+  const contextual = helpers.buildFocusComposerQuickActions({
+    projectBrain: {
+      brain: {
+        facts: "Renderer-only tweak",
+        digests: [{ title: "Digest", body: "Shipped:\n- Brain", createdAt: "2026-05-01T12:00:00.000Z" }],
+      },
+    },
+  });
+  assert.equal(contextual[2].isDisabled(), false);
+  assert.equal(contextual[3].isDisabled(), false);
   assert.equal(typeof actions[0].run, "function");
   assert.equal(typeof actions[1].run, "function");
+  assert.equal(typeof actions[2].run, "function");
+  assert.equal(typeof actions[3].run, "function");
+});
+
+test("Project Brain formatting includes local memory and latest digest", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.normalizeProjectBrainSnapshot, "function");
+  assert.equal(typeof helpers.formatProjectBrainPack, "function");
+  assert.equal(typeof helpers.latestProjectDigest, "function");
+
+  const snapshot = helpers.normalizeProjectBrainSnapshot({
+    projectLabel: "sniper-system",
+    projectPath: "/Users/yjh/Playground/sniper-system",
+    brain: {
+      facts: "Renderer-only tweak",
+      decisions: "Keep data local",
+      commands: "npm test",
+      pitfalls: "Repair after upgrades",
+      digests: [{
+        id: "D-1",
+        title: "Session digest 2026-05-01",
+        body: "Shipped:\n- Project Brain",
+        createdAt: "2026-05-01T12:00:00.000Z",
+      }],
+    },
+  });
+
+  assert.equal(snapshot.brain.facts, "Renderer-only tweak");
+  assert.equal(helpers.latestProjectDigest(snapshot).id, "D-1");
+  const pack = helpers.formatProjectBrainPack(snapshot);
+  assert.match(pack, /^Project Brain/);
+  assert.match(pack, /Decisions:\nKeep data local/);
+  assert.match(pack, /Latest Session Digest:/);
+  assert.match(pack, /Shipped:\n- Project Brain/);
 });
 
 test("focus templates expose predictable built-ins and contextual prompts", () => {

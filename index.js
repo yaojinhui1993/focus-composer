@@ -15,6 +15,8 @@ const ACTIVE_ISSUE_STORAGE_KEY = "codexpp.project-home.activeIssue.v1";
 const ACTIVE_ISSUE_CHANGED_EVENT = "codexpp-project-home-active-issue-changed";
 const RESUME_PACK_STORAGE_KEY = "codexpp.project-home.resumePack.v1";
 const RESUME_PACK_CHANGED_EVENT = "codexpp-project-home-resume-pack-changed";
+const PROJECT_BRAIN_STORAGE_KEY = "codexpp.project-home.brain.v1";
+const PROJECT_BRAIN_CHANGED_EVENT = "codexpp-project-home-brain-changed";
 const FOCUS_COMPOSER_LAUNCH_EVENT = "codexpp-focus-composer-launch";
 const QUICK_ACTIONS_REGISTER_EVENT = "codexpp-global-quick-actions-register";
 const QUICK_ACTIONS_UNREGISTER_EVENT = "codexpp-global-quick-actions-unregister";
@@ -163,6 +165,7 @@ module.exports = {
       activeIssueRoot: null,
       activeIssueSummary: null,
       projectSnapshot: null,
+      projectBrain: normalizeProjectBrainSnapshot(readSharedProjectBrain()),
       saveTimer: null,
       settingsHandle: null,
       shortcutEnabled: readStorage(api, STORAGE_KEYS.shortcutEnabled, DEFAULTS.shortcutEnabled),
@@ -170,6 +173,7 @@ module.exports = {
       keydown: null,
       activeIssueChanged: null,
       resumePackChanged: null,
+      projectBrainChanged: null,
       launchRequested: null,
       quickActionsRefresh: null,
       keyboardShortcutsRefresh: null,
@@ -183,16 +187,20 @@ module.exports = {
     state.resumePackChanged = (event) => {
       state.projectSnapshot = normalizeProjectSnapshot(event.detail || readSharedResumePack());
     };
+    state.projectBrainChanged = (event) => {
+      state.projectBrain = normalizeProjectBrainSnapshot(event.detail || readSharedProjectBrain());
+    };
     state.launchRequested = (event) => handleLaunchRequest(state, event);
-    state.quickActionsRefresh = () => registerFocusComposerQuickActions();
+    state.quickActionsRefresh = () => registerFocusComposerQuickActions(state);
     state.keyboardShortcutsRefresh = () => registerFocusComposerKeyboardShortcuts();
     window.addEventListener("keydown", state.keydown, true);
     window.addEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     window.addEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
+    window.addEventListener(PROJECT_BRAIN_CHANGED_EVENT, state.projectBrainChanged);
     window.addEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
     window.addEventListener(QUICK_ACTIONS_REFRESH_EVENT, state.quickActionsRefresh);
     window.addEventListener(SHORTCUTS_REFRESH_EVENT, state.keyboardShortcutsRefresh);
-    registerFocusComposerQuickActions();
+    registerFocusComposerQuickActions(state);
     registerFocusComposerKeyboardShortcuts();
 
     state.settingsHandle = api.settings?.register?.({
@@ -214,6 +222,7 @@ module.exports = {
     if (state.keydown) window.removeEventListener("keydown", state.keydown, true);
     if (state.activeIssueChanged) window.removeEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     if (state.resumePackChanged) window.removeEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
+    if (state.projectBrainChanged) window.removeEventListener(PROJECT_BRAIN_CHANGED_EVENT, state.projectBrainChanged);
     if (state.launchRequested) window.removeEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
     if (state.quickActionsRefresh) window.removeEventListener(QUICK_ACTIONS_REFRESH_EVENT, state.quickActionsRefresh);
     if (state.keyboardShortcutsRefresh) window.removeEventListener(SHORTCUTS_REFRESH_EVENT, state.keyboardShortcutsRefresh);
@@ -263,6 +272,7 @@ function handleLaunchRequest(state, event) {
   const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
   state.activeIssue = normalizeActiveIssue(detail.activeIssue || readSharedActiveIssue());
   state.projectSnapshot = normalizeProjectSnapshot(detail.project || readSharedResumePack());
+  state.projectBrain = normalizeProjectBrainSnapshot(detail.projectBrain || readSharedProjectBrain());
   loadCapsuleForCurrentProject(state);
   const explicitText = typeof detail.text === "string" ? detail.text.trim() : "";
   const promptInput = {
@@ -301,11 +311,11 @@ function handleLaunchRequest(state, event) {
   setError(state, "");
 }
 
-function registerFocusComposerQuickActions() {
+function registerFocusComposerQuickActions(state = {}) {
   window.dispatchEvent(new CustomEvent(QUICK_ACTIONS_REGISTER_EVENT, {
     detail: {
       source: QUICK_ACTIONS_SOURCE,
-      actions: buildFocusComposerQuickActions(),
+      actions: buildFocusComposerQuickActions(state),
     },
   }));
 }
@@ -332,7 +342,7 @@ function unregisterFocusComposerKeyboardShortcuts() {
   }));
 }
 
-function buildFocusComposerQuickActions() {
+function buildFocusComposerQuickActions(state = {}) {
   return [
     {
       source: QUICK_ACTIONS_SOURCE,
@@ -368,6 +378,32 @@ function buildFocusComposerQuickActions() {
             requestedAt: new Date().toISOString(),
           },
         }));
+      },
+    },
+    {
+      source: QUICK_ACTIONS_SOURCE,
+      id: "insert-project-brain-pack",
+      title: "Insert Project Brain Pack",
+      subtitle: "Insert Project Home local memory into Focus Composer.",
+      keywords: ["project brain", "memory", "facts", "decisions", "commands", "pitfalls"],
+      shortcut: "Brain",
+      disabledReason: "No Project Brain context",
+      isDisabled: () => !projectBrainHasContent(state.projectBrain),
+      run() {
+        insertProjectBrainPack(state);
+      },
+    },
+    {
+      source: QUICK_ACTIONS_SOURCE,
+      id: "insert-latest-session-digest",
+      title: "Insert Latest Session Digest",
+      subtitle: "Insert the latest saved Project Brain session digest.",
+      keywords: ["project brain", "digest", "session", "handoff", "latest"],
+      shortcut: "Digest",
+      disabledReason: "No saved session digest",
+      isDisabled: () => !latestProjectDigest(state.projectBrain),
+      run() {
+        insertLatestProjectDigest(state);
       },
     },
   ];
@@ -641,6 +677,67 @@ function insertResumePack(state) {
   setStatus(state, "Resume pack inserted");
 }
 
+function insertProjectBrainPack(state) {
+  const brain = normalizeProjectBrainSnapshot(state.projectBrain || readSharedProjectBrain());
+  if (!projectBrainHasContent(brain)) {
+    setError(state, "No Project Brain context is available. Open Project Home first.");
+    if (!isOverlayOpen(state)) {
+      window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER_LAUNCH_EVENT, {
+        detail: {
+          version: 1,
+          source: QUICK_ACTIONS_SOURCE,
+          kind: "open-composer",
+          requestedAt: new Date().toISOString(),
+        },
+      }));
+    }
+    return;
+  }
+  const text = formatProjectBrainPack(brain);
+  if (isOverlayOpen(state) && state.textarea) {
+    insertTextIntoFocusTextarea(state, text);
+    flushDraft(state);
+    setError(state, "");
+    setStatus(state, "Project Brain inserted");
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER_LAUNCH_EVENT, {
+    detail: {
+      version: 1,
+      source: QUICK_ACTIONS_SOURCE,
+      kind: "project-brain",
+      text,
+      requestedAt: new Date().toISOString(),
+    },
+  }));
+}
+
+function insertLatestProjectDigest(state) {
+  const brain = normalizeProjectBrainSnapshot(state.projectBrain || readSharedProjectBrain());
+  const digest = latestProjectDigest(brain);
+  if (!digest) {
+    setError(state, "No saved Project Brain session digest is available.");
+    return;
+  }
+  const text = formatSessionDigest(digest);
+  if (isOverlayOpen(state) && state.textarea) {
+    insertTextIntoFocusTextarea(state, text);
+    flushDraft(state);
+    setError(state, "");
+    setStatus(state, "Digest inserted");
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER_LAUNCH_EVENT, {
+    detail: {
+      version: 1,
+      source: QUICK_ACTIONS_SOURCE,
+      kind: "latest-digest",
+      text,
+      requestedAt: new Date().toISOString(),
+    },
+  }));
+}
+
 function createCapsuleSection(state) {
   const root = el("section", `${TWEAK_ID}-capsule`);
 
@@ -675,6 +772,8 @@ function createCapsuleSection(state) {
   const actions = el("div", `${TWEAK_ID}-capsule-actions`);
   actions.append(
     button("Insert Resume Pack", "secondary", () => insertResumePack(state)),
+    button("Brain Pack", "secondary", () => insertProjectBrainPack(state)),
+    button("Digest", "secondary", () => insertLatestProjectDigest(state)),
     button("Insert Capsule", "secondary", () => insertCapsule(state)),
     button("Copy", "secondary", () => copyCapsule(state)),
     button("Clear Capsule", "secondary", () => clearCapsule(state)),
@@ -1022,6 +1121,15 @@ function readSharedResumePack() {
   }
 }
 
+function readSharedProjectBrain() {
+  try {
+    const raw = window.localStorage?.getItem?.(PROJECT_BRAIN_STORAGE_KEY);
+    return normalizeProjectBrainSnapshot(raw ? JSON.parse(raw) : {});
+  } catch {
+    return normalizeProjectBrainSnapshot({});
+  }
+}
+
 function normalizeActiveIssue(input = {}) {
   const source = input && typeof input === "object" ? input : {};
   const comments = Array.isArray(source.comments) ? source.comments : [];
@@ -1175,6 +1283,50 @@ function normalizeProjectSnapshot(input = {}) {
   };
 }
 
+function normalizeProjectBrainSnapshot(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const brain = source.brain && typeof source.brain === "object" ? source.brain : source;
+  return {
+    projectPath: String(source.projectPath || "").trim(),
+    projectLabel: String(source.projectLabel || "").trim(),
+    brain: {
+      version: 1,
+      facts: cleanMultiline(brain.facts),
+      decisions: cleanMultiline(brain.decisions),
+      commands: cleanMultiline(brain.commands),
+      pitfalls: cleanMultiline(brain.pitfalls),
+      digests: Array.isArray(brain.digests)
+        ? brain.digests.map(normalizeProjectDigest).filter(Boolean).slice(0, 30)
+        : [],
+    },
+  };
+}
+
+function normalizeProjectDigest(input = {}) {
+  if (!input || typeof input !== "object") return null;
+  const body = cleanMultiline(input.body || input.summary);
+  if (!body) return null;
+  return {
+    id: String(input.id || "").trim(),
+    title: String(input.title || "Session digest").replace(/\s+/g, " ").trim(),
+    body,
+    activeIssueId: String(input.activeIssueId || "").trim(),
+    activeIssueTitle: String(input.activeIssueTitle || "").replace(/\s+/g, " ").trim(),
+    createdAt: String(input.createdAt || "").trim(),
+    updatedAt: String(input.updatedAt || input.createdAt || "").trim(),
+  };
+}
+
+function cleanMultiline(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t\f\v]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function normalizeResumeIssue(input = {}) {
   const source = input && typeof input === "object" ? input : {};
   return {
@@ -1262,6 +1414,7 @@ function buildLaunchPrompt(input = {}) {
 }
 
 function launchStatusFor(input = {}) {
+  if (isProjectBrainLaunch(input)) return "Project Brain ready";
   return isShipNoteLaunch(input) ? "Ship note ready" : "Work session ready";
 }
 
@@ -1272,6 +1425,11 @@ function isShipNoteLaunch(input = {}) {
 function isOpenComposerLaunch(input = {}) {
   const kind = String(input.kind || input.mode || "").trim().toLowerCase();
   return kind === "open-composer" || kind === "focus-composer";
+}
+
+function isProjectBrainLaunch(input = {}) {
+  const kind = String(input.kind || input.mode || "").trim().toLowerCase();
+  return kind === "project-brain" || kind === "brain-pack" || kind === "latest-digest";
 }
 
 function formatResumePack(input = {}) {
@@ -1303,6 +1461,62 @@ function formatResumePack(input = {}) {
   appendResumeOpenWork(lines, project.openCounts);
   appendResumeFocusIssues(lines, project.focusIssues);
   return lines.join("\n");
+}
+
+function formatProjectBrainPack(input = {}) {
+  const snapshot = normalizeProjectBrainSnapshot(input);
+  const brain = snapshot.brain;
+  const lines = [
+    "Project Brain",
+    "",
+    "Project:",
+    snapshot.projectLabel || snapshot.projectPath || "-",
+  ];
+  if (snapshot.projectPath && snapshot.projectPath !== snapshot.projectLabel) lines.push(snapshot.projectPath);
+  appendBrainSection(lines, "Facts", brain.facts);
+  appendBrainSection(lines, "Decisions", brain.decisions);
+  appendBrainSection(lines, "Commands", brain.commands);
+  appendBrainSection(lines, "Pitfalls", brain.pitfalls);
+  const latest = latestProjectDigest(snapshot);
+  if (latest) {
+    lines.push("", "Latest Session Digest:");
+    lines.push(formatSessionDigest(latest));
+  }
+  return lines.join("\n");
+}
+
+function appendBrainSection(lines, label, value) {
+  lines.push("", `${label}:`);
+  lines.push(cleanMultiline(value) || "-");
+}
+
+function formatSessionDigest(input = {}) {
+  const digest = normalizeProjectDigest(input);
+  if (!digest) return "";
+  const lines = ["Session Digest", "", digest.title];
+  if (digest.createdAt) lines.push(digest.createdAt);
+  if (digest.activeIssueId) {
+    lines.push(`Active Issue: ${digest.activeIssueId}${digest.activeIssueTitle ? ` ${digest.activeIssueTitle}` : ""}`);
+  }
+  lines.push("", digest.body);
+  return lines.join("\n");
+}
+
+function latestProjectDigest(input = {}) {
+  const snapshot = normalizeProjectBrainSnapshot(input);
+  return snapshot.brain.digests[0] || null;
+}
+
+function projectBrainHasContent(input = {}) {
+  const snapshot = normalizeProjectBrainSnapshot(input);
+  const brain = snapshot.brain;
+  return Boolean(
+    brain.facts ||
+    brain.decisions ||
+    brain.commands ||
+    brain.pitfalls ||
+    brain.digests.length,
+  );
 }
 
 function appendResumeCapsule(lines, capsule) {
@@ -2344,6 +2558,7 @@ function getSettingsCss() {
 module.exports.__test = {
   normalizeActiveIssue,
   normalizeProjectSnapshot,
+  normalizeProjectBrainSnapshot,
   summarizeActiveIssue,
   formatActiveIssue,
   buildWorkSessionPrompt,
@@ -2357,5 +2572,9 @@ module.exports.__test = {
   focusComposerLayoutConstraints,
   isTemplateMenuLaunch,
   formatResumePack,
+  formatProjectBrainPack,
+  formatSessionDigest,
+  latestProjectDigest,
+  projectBrainHasContent,
   buildFocusComposerExport,
 };

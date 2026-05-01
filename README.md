@@ -19,6 +19,7 @@ Then fully quit and reopen Codex.
 - `Cmd+Enter`: insert text into Codex and send.
 - `Cmd+Shift+Enter`: insert text into Codex without sending.
 - `Templates`: use the footer button, or the Global Quick Actions item, to insert a reusable prompt template at the cursor.
+- `Brain Pack` / `Digest`: after Project Home publishes a Project Brain snapshot, insert the local project memory or latest session digest into the draft.
 
 Drafts are stored in this tweak's Codex++ storage namespace. No network calls are made.
 
@@ -29,6 +30,16 @@ When Project Home has an active issue, Focus Composer shows it above the Context
 ## Session Resume Pack
 
 Use `Insert Resume Pack` from the Context Capsule controls to insert a handoff that combines the active issue, local Context Capsule, Project Home open-work counts, and prioritized focus issues.
+
+## Project Brain
+
+Project Home publishes a local Project Brain snapshot for the open project. Focus Composer listens for that snapshot and exposes:
+
+- `Brain Pack`: inserts project facts, decisions, commands, pitfalls, and latest digest.
+- `Digest`: inserts only the latest saved session digest.
+- Global Quick Actions entries for both insert operations.
+
+The buttons are disabled/no-op until Project Home has opened a project with Brain data.
 
 ## Templates
 
