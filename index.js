@@ -137,6 +137,15 @@ function handleLaunchRequest(state, event) {
     activeIssue: state.activeIssue,
     capsule: state.capsule,
   };
+  if (isOpenComposerLaunch(promptInput)) {
+    openOverlay(state, {
+      status: "Ready",
+      activeIssue: state.activeIssue,
+      project: state.projectSnapshot,
+    });
+    setError(state, "");
+    return;
+  }
   const text = explicitText || buildLaunchPrompt(promptInput);
   openOverlay(state, {
     text,
@@ -878,6 +887,7 @@ function buildShipNotePrompt(input = {}) {
 }
 
 function buildLaunchPrompt(input = {}) {
+  if (isOpenComposerLaunch(input)) return "";
   return isShipNoteLaunch(input) ? buildShipNotePrompt(input) : buildWorkSessionPrompt(input);
 }
 
@@ -887,6 +897,11 @@ function launchStatusFor(input = {}) {
 
 function isShipNoteLaunch(input = {}) {
   return String(input.kind || input.mode || "").trim().toLowerCase() === "ship-note";
+}
+
+function isOpenComposerLaunch(input = {}) {
+  const kind = String(input.kind || input.mode || "").trim().toLowerCase();
+  return kind === "open-composer" || kind === "focus-composer";
 }
 
 function formatResumePack(input = {}) {
@@ -1797,6 +1812,7 @@ module.exports.__test = {
   buildWorkSessionPrompt,
   buildShipNotePrompt,
   buildLaunchPrompt,
+  isOpenComposerLaunch,
   formatResumePack,
   buildFocusComposerExport,
 };

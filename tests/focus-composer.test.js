@@ -363,6 +363,15 @@ test("buildLaunchPrompt routes ship-note launches to the ship note prompt", () =
   assert.match(prompt, /^End this Project Home session\./);
 });
 
+test("open-composer launches do not generate a replacement prompt", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildLaunchPrompt, "function");
+  assert.equal(typeof helpers.isOpenComposerLaunch, "function");
+
+  assert.equal(helpers.isOpenComposerLaunch({ kind: "open-composer" }), true);
+  assert.equal(helpers.buildLaunchPrompt({ kind: "open-composer" }), "");
+});
+
 test("buildFocusComposerExport captures draft, capsules, settings, and active issue", () => {
   const helpers = focusComposer.__test || {};
   assert.equal(typeof helpers.buildFocusComposerExport, "function");
