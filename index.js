@@ -751,6 +751,7 @@ function renderCapsule(state) {
 
   const open = state.capsuleEditor && !state.capsuleEditor.hidden;
   state.capsuleSummary.innerHTML = "";
+  state.capsuleSummary.setAttribute("aria-expanded", open ? "true" : "false");
   const text = el("span", `${TWEAK_ID}-capsule-summary-text`);
   text.textContent = summarizeCapsule(capsule);
   const meta = el("span", `${TWEAK_ID}-capsule-summary-meta`);
@@ -1104,7 +1105,11 @@ function isTemplateMenuLaunch(input = {}) {
 
 function focusComposerLayoutConstraints() {
   return {
+    panelHeight: "min(820px, calc(100vh - 48px))",
     panelMaxHeight: "calc(100vh - 48px)",
+    composerMinHeight: "300px",
+    compactComposerMinHeight: "220px",
+    capsuleEditorMaxHeight: "clamp(132px, calc(100vh - 640px), 220px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
     mobilePanelMinHeight: "calc(100vh - 24px)",
@@ -1818,16 +1823,17 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-panel {
   width: min(920px, calc(100vw - 48px));
-  min-height: min(560px, calc(100vh - 72px));
+  height: ${layout.panelHeight};
+  min-height: min(620px, calc(100vh - 48px));
   max-height: ${layout.panelMaxHeight};
   box-sizing: border-box;
   display: grid;
-  grid-template-rows: auto auto minmax(0, auto) minmax(180px, 1fr) auto auto;
-  gap: 14px;
+  grid-template-rows: auto auto minmax(0, auto) minmax(${layout.composerMinHeight}, 1fr) auto auto;
+  gap: 12px;
   padding: 18px;
-  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, Canvas 94%, #111827 6%);
+  background: color-mix(in srgb, Canvas 97%, CanvasText 3%);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.30);
   overflow: hidden;
 }
@@ -1844,6 +1850,12 @@ html.${TWEAK_ID}-open {
 .${TWEAK_ID}-footer {
   justify-content: space-between;
   gap: 16px;
+}
+
+.${TWEAK_ID}-footer {
+  align-self: end;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
 
 .${TWEAK_ID}-heading {
@@ -1917,7 +1929,7 @@ html.${TWEAK_ID}-open {
 .${TWEAK_ID}-capsule {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 0;
 }
 
@@ -1927,12 +1939,12 @@ html.${TWEAK_ID}-open {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 34px;
-  padding: 7px 10px;
+  min-height: 32px;
+  padding: 6px 10px;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 8px;
   color: inherit;
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  background: color-mix(in srgb, Canvas 92%, #4f8cff 8%);
   cursor: pointer;
   text-align: left;
 }
@@ -1958,15 +1970,16 @@ html.${TWEAK_ID}-open {
 }
 
 .${TWEAK_ID}-capsule-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: clamp(128px, calc(100vh - 360px), 260px);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 8px;
+  max-height: ${layout.capsuleEditorMaxHeight};
   overflow: auto;
-  padding: 10px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, Canvas 96%, CanvasText 4%);
+  background: color-mix(in srgb, Canvas 98%, CanvasText 2%);
+  scrollbar-width: thin;
 }
 
 .${TWEAK_ID}-capsule-editor[hidden] {
@@ -1975,8 +1988,8 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-capsule-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .${TWEAK_ID}-capsule-field {
@@ -1986,10 +1999,9 @@ html.${TWEAK_ID}-open {
   gap: 5px;
 }
 
-.${TWEAK_ID}-capsule-field-decisions,
-.${TWEAK_ID}-capsule-field-files,
-.${TWEAK_ID}-capsule-field-verified {
-  grid-column: span 2;
+.${TWEAK_ID}-capsule-field-goal,
+.${TWEAK_ID}-capsule-field-next {
+  grid-column: span 1;
 }
 
 .${TWEAK_ID}-capsule-label {
@@ -2000,17 +2012,22 @@ html.${TWEAK_ID}-open {
 .${TWEAK_ID}-capsule-input {
   width: 100%;
   box-sizing: border-box;
-  padding: 8px 9px;
+  min-height: 32px;
+  padding: 6px 8px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   border-radius: 7px;
   outline: none;
   color: inherit;
   background: Canvas;
-  font: 13px/1.4 inherit;
+  font: 12px/1.35 inherit;
 }
 
 textarea.${TWEAK_ID}-capsule-input {
-  resize: vertical;
+  min-height: 56px;
+  max-height: 72px;
+  resize: none;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 
 .${TWEAK_ID}-capsule-input:focus {
@@ -2022,23 +2039,26 @@ textarea.${TWEAK_ID}-capsule-input {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, currentColor 8%, transparent);
 }
 
 .${TWEAK_ID}-textarea {
   width: 100%;
-  min-height: 0;
-  height: 100%;
+  min-height: ${layout.composerMinHeight};
+  align-self: stretch;
   resize: none;
   overflow: auto;
   box-sizing: border-box;
-  padding: 14px;
+  padding: 15px;
   border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
   border-radius: 8px;
   outline: none;
-  background: color-mix(in srgb, Canvas 98%, CanvasText 2%);
+  background: Canvas;
   color: inherit;
-  font: 14px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  scrollbar-width: thin;
 }
 
 .${TWEAK_ID}-textarea:focus {
@@ -2154,6 +2174,29 @@ textarea.${TWEAK_ID}-capsule-input {
   background: #1d4ed8;
 }
 
+@media (max-height: 780px) {
+  .${TWEAK_ID}-overlay {
+    padding: 16px;
+  }
+
+  .${TWEAK_ID}-panel {
+    height: calc(100vh - 32px);
+    min-height: calc(100vh - 32px);
+    max-height: calc(100vh - 32px);
+    grid-template-rows: auto auto minmax(0, auto) minmax(${layout.compactComposerMinHeight}, 1fr) auto auto;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .${TWEAK_ID}-capsule-editor {
+    max-height: 150px;
+  }
+
+  .${TWEAK_ID}-textarea {
+    min-height: ${layout.compactComposerMinHeight};
+  }
+}
+
 @media (max-width: 640px) {
   .${TWEAK_ID}-overlay {
     padding: 12px;
@@ -2161,9 +2204,10 @@ textarea.${TWEAK_ID}-capsule-input {
 
   .${TWEAK_ID}-panel {
     width: calc(100vw - 24px);
+    height: ${layout.mobilePanelMinHeight};
     min-height: ${layout.mobilePanelMinHeight};
     max-height: ${layout.mobilePanelMinHeight};
-    grid-template-rows: auto auto minmax(0, auto) minmax(140px, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(0, auto) minmax(180px, 1fr) auto auto;
   }
 
   .${TWEAK_ID}-header,
@@ -2173,13 +2217,21 @@ textarea.${TWEAK_ID}-capsule-input {
   }
 
   .${TWEAK_ID}-capsule-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .${TWEAK_ID}-capsule-field-decisions,
   .${TWEAK_ID}-capsule-field-files,
   .${TWEAK_ID}-capsule-field-verified {
-    grid-column: auto;
+    grid-column: span 2;
+  }
+
+  .${TWEAK_ID}-capsule-editor {
+    max-height: 180px;
+  }
+
+  .${TWEAK_ID}-textarea {
+    min-height: 180px;
   }
 
   .${TWEAK_ID}-actions {
