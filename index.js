@@ -33,6 +33,15 @@ const DEFAULTS = {
 
 const TWEAK_ID = "com-yjh-focus-composer";
 const TEMPLATE_MENU_ID = `${TWEAK_ID}-template-menu`;
+const COMPOSER_EXCLUDED_ANCESTOR_SELECTOR = [
+  `.${TWEAK_ID}-overlay`,
+  "[data-codexpp-project-home-view]",
+  "[data-codexpp-project-home-header]",
+  "[data-codexpp-project-home-menu]",
+  "[data-codexpp-project-home-quick-capture]",
+  "[data-issue-search-input]",
+  "[role='search']",
+].join(",");
 const FOCUS_TEMPLATES = [
   {
     id: "implementation-plan",
@@ -1730,13 +1739,41 @@ function findComposer() {
   ];
   for (const node of document.querySelectorAll(selectors.join(","))) {
     if (!(node instanceof HTMLElement)) continue;
-    if (node.closest(`.${TWEAK_ID}-overlay`)) continue;
+    if (shouldIgnoreComposerCandidate(node)) continue;
     if (!isEditable(node)) continue;
     if (!isVisible(node)) continue;
     candidates.push({ node, score: scoreComposerNode(node) });
   }
   candidates.sort((a, b) => b.score - a.score);
   return candidates[0]?.node ?? null;
+}
+
+function shouldIgnoreComposerCandidate(candidate) {
+  if (!candidate) return true;
+  if (typeof HTMLElement !== "undefined" && candidate instanceof HTMLElement) {
+    if (candidate.closest(COMPOSER_EXCLUDED_ANCESTOR_SELECTOR)) return true;
+    if (candidate.matches("input[type='search'],[role='searchbox']")) return true;
+    const text = [
+      candidate.getAttribute("placeholder"),
+      candidate.getAttribute("aria-label"),
+      candidate.getAttribute("role"),
+      candidate.closest("[aria-label]")?.getAttribute("aria-label"),
+    ].filter(Boolean).join(" ").toLowerCase();
+    return /\b(search|filter)\b/.test(text) && !/\b(prompt|message|ask|composer|chat)\b/.test(text);
+  }
+
+  const closestSelector = String(candidate.closestSelector || "");
+  const type = String(candidate.type || "").toLowerCase();
+  const tagName = String(candidate.tagName || "").toUpperCase();
+  const text = [
+    candidate.placeholder,
+    candidate.ariaLabel,
+    candidate.role,
+    candidate.ancestorText,
+  ].filter(Boolean).join(" ").toLowerCase();
+  if (/data-codexpp-project-home|data-issue-search-input/.test(closestSelector)) return true;
+  if (tagName === "INPUT" && type === "search") return true;
+  return /\b(search|filter)\b/.test(text) && !/\b(prompt|message|ask|composer|chat)\b/.test(text);
 }
 
 function scoreComposerNode(node) {
@@ -2567,6 +2604,7 @@ module.exports.__test = {
   isOpenComposerLaunch,
   buildFocusComposerQuickActions,
   buildFocusComposerKeyboardShortcuts,
+  shouldIgnoreComposerCandidate,
   listFocusTemplates,
   buildTemplatePrompt,
   focusComposerLayoutConstraints,

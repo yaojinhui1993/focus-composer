@@ -111,6 +111,26 @@ test("scoreComposerCandidate prefers focused bottom composer", () => {
   assert.ok(bottom > top);
 });
 
+test("composer candidate filter rejects Project Home search controls", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.shouldIgnoreComposerCandidate, "function");
+
+  assert.equal(helpers.shouldIgnoreComposerCandidate({
+    tagName: "INPUT",
+    type: "search",
+    ariaLabel: "Search issues",
+    placeholder: "Search issues",
+    closestSelector: "[data-codexpp-project-home-header]",
+  }), true);
+  assert.equal(helpers.shouldIgnoreComposerCandidate({
+    tagName: "TEXTAREA",
+    type: "",
+    ariaLabel: "Message Codex",
+    placeholder: "Ask for follow-up changes",
+    closestSelector: "",
+  }), false);
+});
+
 test("summarizeCapsule handles empty and populated capsules", () => {
   assert.equal(summarizeCapsule({}), "Add context capsule");
   assert.equal(
