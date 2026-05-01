@@ -372,6 +372,18 @@ test("open-composer launches do not generate a replacement prompt", () => {
   assert.equal(helpers.buildLaunchPrompt({ kind: "open-composer" }), "");
 });
 
+test("buildFocusComposerQuickActions registers the open composer action", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildFocusComposerQuickActions, "function");
+
+  const actions = helpers.buildFocusComposerQuickActions();
+  assert.deepEqual(actions.map((action) => action.id), ["open-focus-composer"]);
+  assert.equal(actions[0].source, "focus-composer");
+  assert.equal(actions[0].title, "Open Focus Composer");
+  assert.equal(actions[0].shortcut, "Cmd+Shift+Space");
+  assert.equal(typeof actions[0].run, "function");
+});
+
 test("buildFocusComposerExport captures draft, capsules, settings, and active issue", () => {
   const helpers = focusComposer.__test || {};
   assert.equal(typeof helpers.buildFocusComposerExport, "function");

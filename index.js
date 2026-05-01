@@ -16,6 +16,10 @@ const ACTIVE_ISSUE_CHANGED_EVENT = "codexpp-project-home-active-issue-changed";
 const RESUME_PACK_STORAGE_KEY = "codexpp.project-home.resumePack.v1";
 const RESUME_PACK_CHANGED_EVENT = "codexpp-project-home-resume-pack-changed";
 const FOCUS_COMPOSER_LAUNCH_EVENT = "codexpp-focus-composer-launch";
+const QUICK_ACTIONS_REGISTER_EVENT = "codexpp-global-quick-actions-register";
+const QUICK_ACTIONS_UNREGISTER_EVENT = "codexpp-global-quick-actions-unregister";
+const QUICK_ACTIONS_REFRESH_EVENT = "codexpp-global-quick-actions-request-refresh";
+const QUICK_ACTIONS_SOURCE = "focus-composer";
 
 const DEFAULTS = {
   shortcutEnabled: true,
@@ -54,6 +58,7 @@ module.exports = {
       activeIssueChanged: null,
       resumePackChanged: null,
       launchRequested: null,
+      quickActionsRefresh: null,
     };
 
     state.keydown = (event) => handleGlobalKeydown(state, event);
@@ -65,10 +70,13 @@ module.exports = {
       state.projectSnapshot = normalizeProjectSnapshot(event.detail || readSharedResumePack());
     };
     state.launchRequested = (event) => handleLaunchRequest(state, event);
+    state.quickActionsRefresh = () => registerFocusComposerQuickActions();
     window.addEventListener("keydown", state.keydown, true);
     window.addEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     window.addEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
     window.addEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
+    window.addEventListener(QUICK_ACTIONS_REFRESH_EVENT, state.quickActionsRefresh);
+    registerFocusComposerQuickActions();
 
     state.settingsHandle = api.settings?.register?.({
       id: "focus-composer",
@@ -90,6 +98,8 @@ module.exports = {
     if (state.activeIssueChanged) window.removeEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     if (state.resumePackChanged) window.removeEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
     if (state.launchRequested) window.removeEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
+    if (state.quickActionsRefresh) window.removeEventListener(QUICK_ACTIONS_REFRESH_EVENT, state.quickActionsRefresh);
+    unregisterFocusComposerQuickActions();
     clearSaveTimer(state);
     clearCapsuleSaveTimer(state);
     removeOverlay(state);
@@ -155,6 +165,44 @@ function handleLaunchRequest(state, event) {
   });
   flushDraft(state);
   setError(state, "");
+}
+
+function registerFocusComposerQuickActions() {
+  window.dispatchEvent(new CustomEvent(QUICK_ACTIONS_REGISTER_EVENT, {
+    detail: {
+      source: QUICK_ACTIONS_SOURCE,
+      actions: buildFocusComposerQuickActions(),
+    },
+  }));
+}
+
+function unregisterFocusComposerQuickActions() {
+  window.dispatchEvent(new CustomEvent(QUICK_ACTIONS_UNREGISTER_EVENT, {
+    detail: { source: QUICK_ACTIONS_SOURCE },
+  }));
+}
+
+function buildFocusComposerQuickActions() {
+  return [
+    {
+      source: QUICK_ACTIONS_SOURCE,
+      id: "open-focus-composer",
+      title: "Open Focus Composer",
+      subtitle: "Open the large composer without replacing your draft.",
+      keywords: ["composer", "prompt", "draft"],
+      shortcut: "Cmd+Shift+Space",
+      run() {
+        window.dispatchEvent(new CustomEvent(FOCUS_COMPOSER_LAUNCH_EVENT, {
+          detail: {
+            version: 1,
+            source: QUICK_ACTIONS_SOURCE,
+            kind: "open-composer",
+            requestedAt: new Date().toISOString(),
+          },
+        }));
+      },
+    },
+  ];
 }
 
 function isOpenShortcut(event) {
@@ -1813,6 +1861,7 @@ module.exports.__test = {
   buildShipNotePrompt,
   buildLaunchPrompt,
   isOpenComposerLaunch,
+  buildFocusComposerQuickActions,
   formatResumePack,
   buildFocusComposerExport,
 };
