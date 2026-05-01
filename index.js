@@ -1112,10 +1112,10 @@ function isTemplateMenuLaunch(input = {}) {
 
 function focusComposerLayoutConstraints() {
   return {
-    panelHeight: "min(820px, calc(100vh - 48px))",
+    panelHeight: "min(760px, calc(100vh - 48px))",
     panelMaxHeight: "calc(100vh - 48px)",
-    composerMinHeight: "300px",
-    compactComposerMinHeight: "220px",
+    composerMinHeight: "280px",
+    compactComposerMinHeight: "210px",
     capsuleEditorMaxHeight: "clamp(112px, calc(100vh - 680px), 190px)",
     templateMenuMaxHeight: "min(420px, calc(100vh - 220px))",
     templateMenuOverflowY: "auto",
@@ -1861,7 +1861,7 @@ html.${TWEAK_ID}-open {
 
 .${TWEAK_ID}-footer {
   align-self: end;
-  padding-top: 12px;
+  padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
 
@@ -2090,6 +2090,7 @@ textarea.${TWEAK_ID}-capsule-input {
 .${TWEAK_ID}-textarea {
   width: 100%;
   min-height: ${layout.composerMinHeight};
+  height: 100%;
   align-self: stretch;
   resize: none;
   overflow: auto;
@@ -2192,8 +2193,8 @@ textarea.${TWEAK_ID}-capsule-input {
 }
 
 .${TWEAK_ID}-button {
-  min-height: 32px;
-  padding: 0 12px;
+  min-height: 30px;
+  padding: 0 10px;
   border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
   border-radius: 7px;
   font: inherit;
