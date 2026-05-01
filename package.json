@@ -1,0 +1,9 @@
+{
+  "name": "focus-composer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Large focused prompt composer overlay for Codex++.",
+  "scripts": {
+    "test": "node --test tests/focus-composer.test.js"
+  }
+}

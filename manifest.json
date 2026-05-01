@@ -1,0 +1,14 @@
+{
+  "id": "com.yjh.focus-composer",
+  "name": "Focus Composer",
+  "version": "0.1.0",
+  "githubRepo": "yaojinhui1993/focus-composer",
+  "description": "Large focused prompt composer overlay for Codex.",
+  "author": {
+    "name": "yjh",
+    "url": "https://github.com/yaojinhui1993/focus-composer"
+  },
+  "tags": ["composer", "productivity", "prompt"],
+  "scope": "renderer",
+  "main": "index.js"
+}
