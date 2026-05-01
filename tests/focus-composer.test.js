@@ -384,6 +384,23 @@ test("buildFocusComposerQuickActions registers the open composer action", () => 
   assert.equal(typeof actions[0].run, "function");
 });
 
+test("buildFocusComposerKeyboardShortcuts registers the open shortcut", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildFocusComposerKeyboardShortcuts, "function");
+
+  assert.deepEqual(helpers.buildFocusComposerKeyboardShortcuts(), [
+    {
+      id: "open-focus-composer",
+      label: "Open Focus Composer",
+      combo: "Cmd+Shift+Space",
+      description: "Open the large composer without replacing your draft.",
+      keywords: ["composer", "prompt", "draft"],
+      scope: "Global",
+      remappable: true,
+    },
+  ]);
+});
+
 test("buildFocusComposerExport captures draft, capsules, settings, and active issue", () => {
   const helpers = focusComposer.__test || {};
   assert.equal(typeof helpers.buildFocusComposerExport, "function");
