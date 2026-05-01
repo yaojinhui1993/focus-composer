@@ -273,6 +273,42 @@ test("formatResumePack combines active issue, capsule, and project snapshot", ()
   );
 });
 
+test("buildWorkSessionPrompt prepares a review-first launch prompt", () => {
+  const helpers = focusComposer.__test || {};
+  assert.equal(typeof helpers.buildWorkSessionPrompt, "function");
+
+  const prompt = helpers.buildWorkSessionPrompt({
+    project: {
+      projectLabel: "sniper-system",
+      projectPath: "/Users/yjh/Playground/sniper-system",
+      openCounts: {
+        todo: 1,
+        in_progress: 1,
+      },
+      focusIssues: [
+        { id: "SNI-5", title: "Add Opinion Source AI chat", status: "todo", priority: "urgent" },
+      ],
+    },
+    activeIssue: {
+      issueId: "SNI-1",
+      title: "Fix regression colors",
+      status: "in_progress",
+      priority: "high",
+      description: "The regression run color is too faint.",
+    },
+    capsule: {
+      goal: "Ship workflow",
+      next: "Continue from active issue",
+    },
+  });
+
+  assert.match(prompt, /^Start work on this Project Home session\./);
+  assert.match(prompt, /First restate the current goal briefly/);
+  assert.match(prompt, /Session Resume Pack/);
+  assert.match(prompt, /SNI-1 Fix regression colors/);
+  assert.match(prompt, /SNI-5 \[urgent\/todo\] Add Opinion Source AI chat/);
+});
+
 test("buildFocusComposerExport captures draft, capsules, settings, and active issue", () => {
   const helpers = focusComposer.__test || {};
   assert.equal(typeof helpers.buildFocusComposerExport, "function");

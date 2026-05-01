@@ -15,6 +15,7 @@ const ACTIVE_ISSUE_STORAGE_KEY = "codexpp.project-home.activeIssue.v1";
 const ACTIVE_ISSUE_CHANGED_EVENT = "codexpp-project-home-active-issue-changed";
 const RESUME_PACK_STORAGE_KEY = "codexpp.project-home.resumePack.v1";
 const RESUME_PACK_CHANGED_EVENT = "codexpp-project-home-resume-pack-changed";
+const FOCUS_COMPOSER_LAUNCH_EVENT = "codexpp-focus-composer-launch";
 
 const DEFAULTS = {
   shortcutEnabled: true,
@@ -52,6 +53,7 @@ module.exports = {
       keydown: null,
       activeIssueChanged: null,
       resumePackChanged: null,
+      launchRequested: null,
     };
 
     state.keydown = (event) => handleGlobalKeydown(state, event);
@@ -62,9 +64,11 @@ module.exports = {
     state.resumePackChanged = (event) => {
       state.projectSnapshot = normalizeProjectSnapshot(event.detail || readSharedResumePack());
     };
+    state.launchRequested = (event) => handleLaunchRequest(state, event);
     window.addEventListener("keydown", state.keydown, true);
     window.addEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     window.addEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
+    window.addEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
 
     state.settingsHandle = api.settings?.register?.({
       id: "focus-composer",
@@ -85,6 +89,7 @@ module.exports = {
     if (state.keydown) window.removeEventListener("keydown", state.keydown, true);
     if (state.activeIssueChanged) window.removeEventListener(ACTIVE_ISSUE_CHANGED_EVENT, state.activeIssueChanged);
     if (state.resumePackChanged) window.removeEventListener(RESUME_PACK_CHANGED_EVENT, state.resumePackChanged);
+    if (state.launchRequested) window.removeEventListener(FOCUS_COMPOSER_LAUNCH_EVENT, state.launchRequested);
     clearSaveTimer(state);
     clearCapsuleSaveTimer(state);
     removeOverlay(state);
@@ -120,6 +125,27 @@ function handleGlobalKeydown(state, event) {
   else openOverlay(state);
 }
 
+function handleLaunchRequest(state, event) {
+  const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+  state.activeIssue = normalizeActiveIssue(detail.activeIssue || readSharedActiveIssue());
+  state.projectSnapshot = normalizeProjectSnapshot(detail.project || readSharedResumePack());
+  loadCapsuleForCurrentProject(state);
+  const explicitText = typeof detail.text === "string" ? detail.text.trim() : "";
+  const text = explicitText || buildWorkSessionPrompt({
+    project: state.projectSnapshot,
+    activeIssue: state.activeIssue,
+    capsule: state.capsule,
+  });
+  openOverlay(state, {
+    text,
+    status: "Work session ready",
+    activeIssue: state.activeIssue,
+    project: state.projectSnapshot,
+  });
+  flushDraft(state);
+  setError(state, "");
+}
+
 function isOpenShortcut(event) {
   const key = String(event.key || "").toLowerCase();
   return !!(event.metaKey && event.shiftKey && (key === " " || event.code === "Space"));
@@ -129,21 +155,26 @@ function isOverlayOpen(state) {
   return !!(state.overlay && !state.overlay.hidden);
 }
 
-function openOverlay(state) {
+function openOverlay(state, options = {}) {
   state.composer = findComposer();
   const nativeText = state.composer ? readComposerText(state.composer) : "";
   const storedDraft = readStorage(state.api, STORAGE_KEYS.draft, "");
-  const initialText = nativeText.trim().length > 0 ? nativeText : storedDraft;
+  const forcedText = typeof options.text === "string" ? options.text : null;
+  const initialText = forcedText !== null ? forcedText : nativeText.trim().length > 0 ? nativeText : storedDraft;
 
   if (!state.overlay) createOverlay(state);
-  state.activeIssue = readSharedActiveIssue();
-  state.projectSnapshot = readSharedResumePack();
+  state.activeIssue = options.activeIssue
+    ? normalizeActiveIssue(options.activeIssue)
+    : readSharedActiveIssue();
+  state.projectSnapshot = options.project
+    ? normalizeProjectSnapshot(options.project)
+    : readSharedResumePack();
   renderActiveIssue(state);
   loadCapsuleForCurrentProject(state);
   renderCapsule(state);
   state.textarea.value = initialText;
   updateTextCount(state);
-  setStatus(state, initialText ? "Draft ready" : "Ready");
+  setStatus(state, options.status || (initialText ? "Draft ready" : "Ready"));
   setError(state, state.composer ? "" : "Native composer not found yet. You can write here, then try Insert after clicking a Codex chat.");
   state.overlay.hidden = false;
   document.documentElement.classList.add(`${TWEAK_ID}-open`);
@@ -805,6 +836,16 @@ function formatActiveIssue(input) {
     }
   }
   return lines.join("\n");
+}
+
+function buildWorkSessionPrompt(input = {}) {
+  return [
+    "Start work on this Project Home session.",
+    "",
+    "Use the Session Resume Pack below as the source of truth. First restate the current goal briefly, then continue with the next concrete step.",
+    "",
+    formatResumePack(input),
+  ].join("\n");
 }
 
 function formatResumePack(input = {}) {
@@ -1712,6 +1753,7 @@ module.exports.__test = {
   normalizeProjectSnapshot,
   summarizeActiveIssue,
   formatActiveIssue,
+  buildWorkSessionPrompt,
   formatResumePack,
   buildFocusComposerExport,
 };
